@@ -27,6 +27,8 @@ exports.handler = function(event, context, callback) {
         Bucket: BUCKET,
         ContentType: 'image/png',
         Key: key,
+        StorageClass: "REDUCED_REDUNDANCY",
+        Expires: new Date(+new Date + 12096e5),
       }).promise()
     )
     .then(() => callback(null, {
