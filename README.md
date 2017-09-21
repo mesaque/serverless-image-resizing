@@ -40,3 +40,6 @@ This reference architecture sample is [licensed][license] under Apache 2.0.
 [sharp]: https://github.com/lovell/sharp
 [amazon-linux]: https://aws.amazon.com/blogs/compute/nodejs-packages-in-lambda/
 [cli]: https://aws.amazon.com/cli/
+
+## info
+https://aws.amazon.com/pt/blogs/compute/resize-images-on-the-fly-with-amazon-s3-aws-lambda-and-amazon-api-gateway/
