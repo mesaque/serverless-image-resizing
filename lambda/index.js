@@ -17,12 +17,21 @@ exports.handler = function(event, context, callback) {
   const height = parseInt(match[2], 10);
   const originalKey = match[3];
 
+  function SizeNotExist(message) {
+      this.name = "SizeNotExistError";
+      this.message = message;
+  }
+
+  SizeNotExist.prototype = new Error();
+
   var find = SIZES.find((size) => {
     return size.width == width && size.height == height;
   })
 
   if (!find) {
-    callback(new Error('Size required is not registered'));
+    var error = new SizeNotExist("Size expecified is not registered!");
+    callback(error);
+
     return;
   }
 
