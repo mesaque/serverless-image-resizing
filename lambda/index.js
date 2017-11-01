@@ -2,59 +2,123 @@
 
 const AWS = require('aws-sdk');
 const S3 = new AWS.S3({
-  signatureVersion: 'v4',
+	signatureVersion: 'v4',
 });
 const Sharp = require('sharp');
+const http  = require('http');
 
 const BUCKET = process.env.BUCKET;
 const URL = process.env.URL;
 const SIZES = JSON.parse(process.env.SIZES_NEED);
 
 exports.handler = function(event, context, callback) {
-  const key = event.queryStringParameters.key;
-  const match = key.match(/(\d+)x(\d+)\/(.*)/);
-  const width = parseInt(match[1], 10);
-  const height = parseInt(match[2], 10);
-  const originalKey = match[3];
+	const key = event.queryStringParameters.key;
+	if(!key){
+		var error = new SizeNotExist("Key not expecified!");
+		callback(error);
 
-  function SizeNotExist(message) {
-      this.name = "SizeNotExistError";
-      this.message = message;
-  }
+		return;
+	}
 
-  SizeNotExist.prototype = new Error();
+	const match = key.match(/(\d+)x(\d+)\/(.*)/);
 
-  var find = SIZES.find((size) => {
-    return size.width == width && size.height == height;
-  })
+	var width  = 0;
+	var height = 0;
+	var originalKey = "";
 
-  if (!find) {
-    var error = new SizeNotExist("Size expecified is not registered!");
-    callback(error);
+	if( match ) {
+		width = parseInt(match[1], 10);
+		height = parseInt(match[2], 10);
+		originalKey = match[3];
+	}
 
-    return;
-  }
+ 
+	function SizeNotExist(message) {
+			this.name = "SizeNotExistError";
+			this.message = message;
+	}
 
-  S3.getObject({Bucket: BUCKET, Key: originalKey}).promise()
-    .then(data => Sharp(data.Body)
-      .resize(width, height)
-      .toFormat('png')
-      .toBuffer()
-    )
-    .then(buffer => S3.putObject({
-        Body: buffer,
-        Bucket: BUCKET,
-        ContentType: 'image/png',
-        Key: key,
-        StorageClass: "REDUCED_REDUNDANCY",
-        Expires: new Date(+new Date + 12096e5),
-      }).promise()
-    )
-    .then(() => callback(null, {
-        statusCode: '301',
-        headers: {'location': `${URL}/${key}`},
-        body: '',
-      })
-    )
-    .catch(err => callback(err))
+	SizeNotExist.prototype = new Error();
+
+	var find = SIZES.find((size) => {
+		return size.width == width && size.height == height;
+	})
+
+	if (!find) {
+		var error = new SizeNotExist("This size expecified is not registered! width: " + width + " height:" +height);
+		callback(error);
+
+		return;
+	}
+
+	var params = {
+		Bucket: BUCKET, 
+		Key: originalKey
+	};
+
+	S3.headObject(params, function(err, data) {
+		if(err) {
+
+			http.get('https://ecommercebrasil.apikihomolog.com/wp-content/uploads/2017/10/cocaine1.jpg', function(res) {
+    		if(res.statusCode != 200) {
+      		console.log("Err\n");
+
+    		}else{
+
+    			var imagedata = ''
+			    res.setEncoding('binary')
+
+			    res.on('data', function(chunk){
+			        imagedata += chunk;
+
+			        var data = {
+								Key: params.Key,
+								Body: imagedata,
+								Bucket: BUCKET,
+								ContentType: 'image/png',
+								StorageClass: "REDUCED_REDUNDANCY",
+								Expires: new Date(+new Date + 12096e5)
+							};
+
+							S3.putObject(data, function(err, data){
+							  if (err) { 
+							  	console.log('Error uploading data: ', data);
+							  	callback(err);
+							  	return; 
+							    } else {
+							      console.log('succesfully uploaded the image!');
+							    }
+							});
+
+			    });
+		
+    		} 
+  		});
+
+	
+		};//if(err) {
+	});
+ 
+	S3.getObject(params).promise()
+		.then(data => Sharp(data.Body)
+			.resize(width, height)
+			.toFormat('png')
+			.toBuffer()
+		)
+		.then(buffer => S3.putObject({
+				Body: buffer,
+				Bucket: BUCKET,
+				ContentType: 'image/png',
+				Key: key,
+				StorageClass: "REDUCED_REDUNDANCY",
+				Expires: new Date(+new Date + 12096e5),
+			}).promise()
+		)
+		.then(() => callback(null, {
+				statusCode: '301',
+				headers: {'location': `${URL}/${key}`},
+				body: '',
+			})
+		)
+		.catch(err => callback(err))
 }
