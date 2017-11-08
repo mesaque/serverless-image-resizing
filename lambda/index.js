@@ -9,9 +9,9 @@ const http  = require('http'), Stream = require('stream').Transform;
 
 const BUCKET = process.env.BUCKET;
 const URL = process.env.URL;
+const DOMAIN = process.env.DOMAIN;
 const SIZES = JSON.parse(process.env.SIZES_NEED);
 
-console.log('version: 2');
 exports.handler = function(event, context, callback) {
 	const key = event.queryStringParameters.key;
 	if(!key){
@@ -60,9 +60,9 @@ exports.handler = function(event, context, callback) {
 	S3.headObject(params, function(err, data) {
 		if(err) {
 
-			http.get('http://ecommercebrasil.apikihomolog.com/wp-content/uploads/2017/10/cocaine1.jpg', function(res) {
+			http.get(DOMAIN+params.Key, function(res) {
 	    		if(res.statusCode != 200) {
-	      		console.log("Err\n");
+	      		console.log("Status code not 200: " + res.statusCode + " image: " + DOMAIN+params.Key);
 
 	    		}else{
 
