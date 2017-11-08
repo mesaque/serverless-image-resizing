@@ -5,12 +5,13 @@ const S3 = new AWS.S3({
 	signatureVersion: 'v4',
 });
 const Sharp = require('sharp');
-const http  = require('http');
+const http  = require('http'), Stream = require('stream').Transform;
 
 const BUCKET = process.env.BUCKET;
 const URL = process.env.URL;
 const SIZES = JSON.parse(process.env.SIZES_NEED);
 
+console.log('version: 2');
 exports.handler = function(event, context, callback) {
 	const key = event.queryStringParameters.key;
 	if(!key){
@@ -59,66 +60,94 @@ exports.handler = function(event, context, callback) {
 	S3.headObject(params, function(err, data) {
 		if(err) {
 
-			http.get('https://ecommercebrasil.apikihomolog.com/wp-content/uploads/2017/10/cocaine1.jpg', function(res) {
-    		if(res.statusCode != 200) {
-      		console.log("Err\n");
+			http.get('http://ecommercebrasil.apikihomolog.com/wp-content/uploads/2017/10/cocaine1.jpg', function(res) {
+	    		if(res.statusCode != 200) {
+	      		console.log("Err\n");
 
-    		}else{
+	    		}else{
 
-    			var imagedata = ''
-			    res.setEncoding('binary')
+	    			var imagedata = new Stream();
 
-			    res.on('data', function(chunk){
-			        imagedata += chunk;
+				    res.on('data', function(chunk){
+				        imagedata.push(chunk);
+				    });
 
-			        var data = {
-								Key: params.Key,
-								Body: imagedata,
-								Bucket: BUCKET,
-								ContentType: 'image/png',
-								StorageClass: "REDUCED_REDUNDANCY",
-								Expires: new Date(+new Date + 12096e5)
-							};
+				    res.on('end', function(chunk){
 
-							S3.putObject(data, function(err, data){
-							  if (err) { 
-							  	console.log('Error uploading data: ', data);
-							  	callback(err);
-							  	return; 
-							    } else {
-							      console.log('succesfully uploaded the image!');
-							    }
-							});
+				    	var data = {
+							Key: params.Key,
+							Body: imagedata.read(),
+							Bucket: BUCKET,
+							ContentType: res.headers['content-type'],
+							StorageClass: "REDUCED_REDUNDANCY",
+							Expires: new Date(+new Date + 12096e5)
+						};
 
-			    });
-		
-    		} 
-  		});
+						S3.putObject(data, function(err, data){
+							if (err) { 
+						  		console.log('Error uploading data: ', data);
+						  		callback(err);
+						  		return; 
+						    } else {
 
+						    	S3.getObject(params).promise()
+								.then(data => Sharp(data.Body)
+									.resize(width, height)
+									.toFormat('png')
+									.toBuffer()
+								)
+								.then(buffer => S3.putObject({
+										Body: buffer,
+										Bucket: BUCKET,
+										ContentType: 'image/png',
+										Key: key,
+										StorageClass: "REDUCED_REDUNDANCY",
+										Expires: new Date(+new Date + 12096e5),
+									}).promise()
+								)
+								.then(() => callback(null, {
+										statusCode: '301',
+										headers: {'location': `${URL}/${key}`},
+										body: '',
+									})
+								)
+								.catch(err => callback(err))
+								return;
+						    }
+						});
+
+				    });
+			
+	    		}
+	  		});
 	
-		};//if(err) {
-	});
- 
-	S3.getObject(params).promise()
-		.then(data => Sharp(data.Body)
-			.resize(width, height)
-			.toFormat('png')
-			.toBuffer()
-		)
-		.then(buffer => S3.putObject({
-				Body: buffer,
-				Bucket: BUCKET,
-				ContentType: 'image/png',
-				Key: key,
-				StorageClass: "REDUCED_REDUNDANCY",
-				Expires: new Date(+new Date + 12096e5),
-			}).promise()
-		)
-		.then(() => callback(null, {
-				statusCode: '301',
-				headers: {'location': `${URL}/${key}`},
-				body: '',
-			})
-		)
-		.catch(err => callback(err))
+		}else{
+
+			S3.getObject(params).promise()
+			.then(data => Sharp(data.Body)
+				.resize(width, height)
+				.toFormat('png')
+				.toBuffer()
+			)
+			.then(buffer => S3.putObject({
+					Body: buffer,
+					Bucket: BUCKET,
+					ContentType: 'image/png',
+					Key: key,
+					StorageClass: "REDUCED_REDUNDANCY",
+					Expires: new Date(+new Date + 12096e5),
+				}).promise()
+			)
+			.then(() => callback(null, {
+					statusCode: '301',
+					headers: {'location': `${URL}/${key}`},
+					body: '',
+				})
+			)
+			.catch(err => callback(err))
+
+		}
+
+	});	
+	
 }
