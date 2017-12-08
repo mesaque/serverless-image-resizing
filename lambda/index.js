@@ -4,6 +4,9 @@ const AWS   = require('aws-sdk');
 const S3    = new AWS.S3({signatureVersion: 'v4'});
 const Sharp = require('sharp');
 const http  = require('http'), Stream = require('stream').Transform;
+const url   = require('url');
+const path  = require('path');
+
 
 const BUCKET = process.env.BUCKET;
 const URL    = process.env.URL;
@@ -21,16 +24,24 @@ exports.handler = function(event, context, callback) {
 
 	const match = key.match(/(\d+)x(\d+)\/(.*)/);
 
-	var width  = 0;
-	var height = 0;
+	var width       = 0;
+	var height      = 0;
 	var originalKey = "";
+	var resizeKey   = "";
+	var is_resize   = 0;
+
+	const myurl = new url.parse(key);
+	const filename = path.basename(myurl.pathname);
 
 	if( match ) {
 		width = parseInt(match[1], 10);
 		height = parseInt(match[2], 10);
 		originalKey = match[3];
+		is_resize = 1;
+		resizeKey = myurl.pathname.substr(1,myurl.pathname.length);
+	}else{
+		originalKey = myurl.pathname.substr(1,myurl.pathname.length);
 	}
-
  
 	function SizeNotExist(message) {
 			this.name = "SizeNotExistError";
@@ -42,13 +53,6 @@ exports.handler = function(event, context, callback) {
 	var find = SIZES.find((size) => {
 		return size.width == width && size.height == height;
 	})
-
-	if (!find) {
-		var error = new SizeNotExist("This size expecified is not registered! width: " + width + " height:" +height);
-		callback(error);
-
-		return;
-	}
 
 	var params = {
 		Bucket: BUCKET, 
@@ -91,29 +95,39 @@ exports.handler = function(event, context, callback) {
 									return; 
 								} else {
 
-									S3.getObject(params).promise()
-								.then(data => Sharp(data.Body)
-									.resize(width, height)
-									.toFormat('png')
-									.toBuffer()
-								)
-								.then(buffer => S3.putObject({
-										Body: buffer,
-										Bucket: BUCKET,
-										ContentType: 'image/png',
-										Key: key,
-										StorageClass: "REDUCED_REDUNDANCY",
-										Expires: new Date(+new Date + 12096e5),
-									}).promise()
-								)
-								.then(() => callback(null, {
-										statusCode: '301',
-										headers: {'location': `${URL}/${key}`},
-										body: '',
-									})
-								)
-								.catch(err => callback(err))
-								return;
+								if ( is_resize == 1 ){
+
+										if (!find) {
+											var error = new SizeNotExist("This size expecified is not registered! width: " + width + " height:" +height);
+											callback(error);
+											return;
+										}
+
+										S3.getObject(params).promise()
+										.then(data => Sharp(data.Body)
+											.resize(width, height)
+											.toFormat('png')
+											.toBuffer()
+										)
+										.then(buffer => S3.putObject({
+												Body: buffer,
+												Bucket: BUCKET,
+												ContentType: 'image/png',
+												Key: resizeKey,
+												StorageClass: "REDUCED_REDUNDANCY",
+												Expires: new Date(+new Date + 12096e5),
+											}).promise()
+										)
+										.then(() => callback(null, {
+												statusCode: '301',
+												headers: {'location': `${URL}/${key}`},
+												body: '',
+											})
+										)
+										.catch(err => callback(err))
+										return;
+									}
+
 								}
 						});
 
@@ -124,7 +138,13 @@ exports.handler = function(event, context, callback) {
 	
 		}else{
 			// Yes! image  already exist on Bucket
-			
+		
+			if (!find) {
+				var error = new SizeNotExist("This size expecified is not registered! width: " + width + " height:" +height);
+				callback(error);
+				return;
+			}
+
 			S3.getObject(params).promise()
 			.then(data => Sharp(data.Body)
 				.resize(width, height)
@@ -135,7 +155,7 @@ exports.handler = function(event, context, callback) {
 					Body: buffer,
 					Bucket: BUCKET,
 					ContentType: 'image/png',
-					Key: key,
+					Key: resizeKey,
 					StorageClass: "REDUCED_REDUNDANCY",
 					Expires: new Date(+new Date + 12096e5),
 				}).promise()
