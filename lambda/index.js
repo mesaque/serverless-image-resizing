@@ -55,8 +55,11 @@ exports.handler = function(event, context, callback) {
 		Key: originalKey
 	};
 
+	// Check if image exist on bucket
 	S3.headObject(params, function(err, data) {
+
 		if(err) {
+		// Image NOT exist on bucket
 
 			http.get(DOMAIN+params.Key, function(res) {
 					if(res.statusCode != 200) {
@@ -120,7 +123,8 @@ exports.handler = function(event, context, callback) {
 				});
 	
 		}else{
-
+			// Yes! image  already exist on Bucket
+			
 			S3.getObject(params).promise()
 			.then(data => Sharp(data.Body)
 				.resize(width, height)
