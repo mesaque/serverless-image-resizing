@@ -1,16 +1,14 @@
 'use strict';
 
-const AWS = require('aws-sdk');
-const S3 = new AWS.S3({
-	signatureVersion: 'v4',
-});
+const AWS   = require('aws-sdk');
+const S3    = new AWS.S3({signatureVersion: 'v4'});
 const Sharp = require('sharp');
 const http  = require('http'), Stream = require('stream').Transform;
 
 const BUCKET = process.env.BUCKET;
-const URL = process.env.URL;
+const URL    = process.env.URL;
 const DOMAIN = process.env.DOMAIN;
-const SIZES = JSON.parse(process.env.SIZES_NEED);
+const SIZES  = JSON.parse(process.env.SIZES_NEED);
 
 exports.handler = function(event, context, callback) {
 	const key = event.queryStringParameters.key;
@@ -61,20 +59,20 @@ exports.handler = function(event, context, callback) {
 		if(err) {
 
 			http.get(DOMAIN+params.Key, function(res) {
-	    		if(res.statusCode != 200) {
-	      		console.log("Status code not 200: " + res.statusCode + " image: " + DOMAIN+params.Key);
+					if(res.statusCode != 200) {
+						console.log("Status code not 200: " + res.statusCode + " image: " + DOMAIN+params.Key);
 
-	    		}else{
+					}else{
 
-	    			var imagedata = new Stream();
+						var imagedata = new Stream();
 
-				    res.on('data', function(chunk){
-				        imagedata.push(chunk);
-				    });
+						res.on('data', function(chunk){
+								imagedata.push(chunk);
+						});
 
-				    res.on('end', function(chunk){
+						res.on('end', function(chunk){
 
-				    	var data = {
+							var data = {
 							Key: params.Key,
 							Body: imagedata.read(),
 							Bucket: BUCKET,
@@ -85,12 +83,12 @@ exports.handler = function(event, context, callback) {
 
 						S3.putObject(data, function(err, data){
 							if (err) { 
-						  		console.log('Error uploading data: ', data);
-						  		callback(err);
-						  		return; 
-						    } else {
+									console.log('Error uploading data: ', data);
+									callback(err);
+									return; 
+								} else {
 
-						    	S3.getObject(params).promise()
+									S3.getObject(params).promise()
 								.then(data => Sharp(data.Body)
 									.resize(width, height)
 									.toFormat('png')
@@ -113,13 +111,13 @@ exports.handler = function(event, context, callback) {
 								)
 								.catch(err => callback(err))
 								return;
-						    }
+								}
 						});
 
-				    });
+						});
 			
-	    		}
-	  		});
+					}
+				});
 	
 		}else{
 
