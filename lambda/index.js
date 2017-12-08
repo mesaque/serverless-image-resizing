@@ -38,9 +38,9 @@ exports.handler = function(event, context, callback) {
 		height = parseInt(match[2], 10);
 		originalKey = match[3];
 		is_resize = 1;
-		resizeKey = myurl.pathname.substr(1,myurl.pathname.length);
+		resizeKey = myurl.pathname;
 	}else{
-		originalKey = myurl.pathname.substr(1,myurl.pathname.length);
+		originalKey = myurl.pathname;
 	}
  
 	function SizeNotExist(message) {
@@ -127,6 +127,12 @@ exports.handler = function(event, context, callback) {
 										.catch(err => callback(err))
 										return;
 									}
+
+									callback(null, {
+										statusCode: '301',
+										headers: {'location': `${URL}/${params.Key}`},
+										body: '',
+									});
 
 								}
 						});
