@@ -13,6 +13,7 @@ Environment variables
 
 	- BUCKET :  bucket name that you created
 	- URL :  enter the endpoint field that you noted above, prefixed with http://.
+	- DOMAIN : domain name
 	- SIZES_NEED : json with sizes you need ex: [{"width":25,"height":25},{"width":100,"height":100}]
 
 ## Usage
